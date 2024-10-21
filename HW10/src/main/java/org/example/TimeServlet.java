@@ -2,15 +2,17 @@ package org.example;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.time.*;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-@WebServlet(value="/time")
+@WebServlet(value = "/time")
 public class TimeServlet extends HttpServlet {
 
     @Override
@@ -18,17 +20,27 @@ public class TimeServlet extends HttpServlet {
         resp.setContentType("text/html");
 
         String timeZone = req.getParameter("timeZone");
+        if (timeZone == null || timeZone.isEmpty()) {
+            Cookie[] cookies = req.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("lastTimezone".equals(cookie.getName())) {
+                        timeZone = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+        }
 
-        ZoneId zoneId = (timeZone != null && !timeZone.isEmpty()) ? ZoneId.of(timeZone) : ZoneOffset.UTC;
-
+        ZoneId zoneId = (timeZone != null && !timeZone.isEmpty()) ? ZoneId.of(timeZone) : ZoneId.of("UTC");
         ZonedDateTime now = ZonedDateTime.now(zoneId);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        String date = now.format(formatter);
+        String currentTime = now.format(formatter);
 
-        resp.getWriter().write("<html><body>");
-        resp.getWriter().write("<h1>Current Time: " + date + "</h1>");
-        resp.getWriter().write("</body></html>");
+        Cookie cookie = new Cookie("lastTimezone", zoneId.toString());
+        resp.addCookie(cookie);
 
-        resp.getWriter().close();
+        req.setAttribute("currentTime", currentTime);
+        req.getRequestDispatcher("/index.jsp").forward(req, resp);
     }
 }
